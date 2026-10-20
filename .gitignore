@@ -1,0 +1,18 @@
+
+# Secrets and database credentials
+database.ini
+.env
+.streamlit/secrets.toml
+
+# Python generated files
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Test and editor files
+.pytest_cache/
+.vscode/
+
+# Generated reports
+BMI_REPORT.pdf

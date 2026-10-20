@@ -1,0 +1,7 @@
+[theme]
+base = "dark"
+primaryColor = "#00E5FF"            # Vibrant Cyan/Teal
+backgroundColor = "#0B0F19"         # Deep Midnight Blue
+secondaryBackgroundColor = "#1A2333" # Muted Slate Blue
+textColor = "#FFFFFF"               # Crisp White
+font = "sans serif"
