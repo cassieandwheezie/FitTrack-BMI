@@ -3,9 +3,55 @@ import plotly.graph_objects as go
 from insert_data import insert_data
 from view_data import view_data
 from pdf import generate_pdf
+import pandas as pd
+import plotly.express as px
+from auth import login_user, register_user
 
 st.set_page_config(page_title="FitTrack BMI", page_icon="🏋️", layout="centered")
+# Initialize session state for user authentication
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "user_id" not in st.session_state:
+    st.session_state.user_id = None
+if "user_email" not in st.session_state:
+    st.session_state.user_email = ""
 
+# If user is NOT logged in, show authentication forms and stop further execution
+if not st.session_state.logged_in:
+    st.title("🏋️ FitTrack BMI - Multi-User Login")
+    tab_login, tab_register = st.tabs(["🔒 Log In", "📝 Register"])
+
+    with tab_login:
+        st.subheader("Login to Your Account")
+        login_email = st.text_input("Email", key="login_email")
+        login_pwd = st.text_input("Password", type="password", key="login_pwd")
+        if st.button("Log In", type="primary"):
+            success, user_id_or_msg = login_user(login_email, login_pwd)
+            if success:
+                st.session_state.logged_in = True
+                st.session_state.user_id = user_id_or_msg
+                st.session_state.user_email = login_email
+                st.success("Logged in successfully!")
+                st.rerun()
+            else:
+                st.error(user_id_or_msg)
+
+    with tab_register:
+        st.subheader("Create a New Account")
+        reg_email = st.text_input("Email", key="reg_email")
+        reg_pwd = st.text_input("Password (min 8 characters)", type="password", key="reg_pwd")
+        if st.button("Register Account"):
+            success, user_id_or_msg = register_user(reg_email, reg_pwd)
+            if success:
+                st.session_state.logged_in = True
+                st.session_state.user_id = user_id_or_msg
+                st.session_state.user_email = reg_email
+                st.success("Account created successfully!")
+                st.rerun()
+            else:
+                st.error(user_id_or_msg)
+
+    st.stop()  # Prevents rendering calculator until logged in
 @st.dialog("📊 BMI Categories Chart")
 def show_bmi_chart():
     st.write("BMI categories are general screening classifications "
@@ -65,10 +111,16 @@ with st.sidebar:
     st.write("✅ Water Intake Recommendation")
     st.write("✅ Simple and Interactive User Interface")
     search_name = st.text_input("🔍 Search by Name")
+    st.write(f"👤 Logged in as: **{st.session_state.user_email}**")
+    if st.button("🚪 Log Out"):
+        st.session_state.logged_in = False
+        st.session_state.user_id = None
+        st.session_state.user_email = ""
+        st.rerun()
+        st.divider()
     
     if st.button("📜 View BMI History"):
-        history = view_data(search_name)
-
+        history = view_data(st.session_state.user_id, search_name)
         if history is not None and len(history) > 0:
             st.dataframe(
                 history,
@@ -147,9 +199,10 @@ if calculate:
  
     # Save the record using the database-level duplicate check
     save_status = insert_data(
-        name.strip(), age, gender, height, weight,
-        bmi_val, category_val, water_val
-    )
+    st.session_state.user_id,
+    name.strip(), age, gender, height, weight,
+    bmi_val, category_val, water_val
+)
 
     if save_status is True:
         st.toast("Data saved successfully! 💾")
@@ -181,7 +234,7 @@ if st.session_state.get("calculated", False):
     category = result["category"]
 
 
-    tab1, tab2 = st.tabs(["📊Results", "💡Health tips"])
+    tab1, tab2, tab3 = st.tabs(["📊 Results", "💡 Health tips", "📈 Progress Chart"])
     with tab1:
         st.metric(label="Calculated BMI", value=f"{bmi:.1f}")
         fig = go.Figure(
@@ -235,34 +288,34 @@ if st.session_state.get("calculated", False):
             st.info("Tip: It may be beneficial to discuss tailored health plans with a healthcare professional.")
     
     
-if st.button("📄 Generate PDF Report"):
-    try:
-        filename = "BMI_REPORT.pdf"
+        if st.button("📄 Generate PDF Report"):
+            try:
+                filename = "BMI_REPORT.pdf"
 
-        pdf_file = generate_pdf(
-            filename, name, age, gender,
-            height, weight, bmi, category, water
-        )
+                pdf_file = generate_pdf(
+                    filename, name, age, gender,
+                    height, weight, bmi, category, water
+                )
 
-        with open(pdf_file, "rb") as file:
-            pdf_bytes = file.read()
+                with open(pdf_file, "rb") as file:
+                    pdf_bytes = file.read()
 
-        if pdf_bytes.startswith(b"%PDF-"):
-            st.download_button(
-                label="⬇️ Download PDF Report",
-                data=pdf_bytes,
-                file_name="BMI_Report.pdf",
-                mime="application/pdf",
-            )
-        else:
-            st.error("The generated file is not a valid PDF.")
+                if pdf_bytes.startswith(b"%PDF-"):
+                    st.download_button(
+                        label="⬇️ Download PDF Report",
+                        data=pdf_bytes,
+                        file_name="BMI_Report.pdf",
+                        mime="application/pdf",
+                    )
+                else:
+                    st.error("The generated file is not a valid PDF.")
 
-    except Exception as e:
-        st.error(f"PDF generation failed: {e}")
+            except Exception as e:
+                st.error(f"PDF generation failed: {e}")
 
-        st.write("Returned:", pdf_bytes)
-        with open(pdf_bytes, "rb") as file: 
-            st.download_button(label="⬇ Download PDF",data=pdf_bytes,file_name="BMI_Report.pdf",mime="application/pdf")
+                st.write("Returned:", pdf_bytes)
+                with open(pdf_bytes, "rb") as file: 
+                    st.download_button(label="⬇ Download PDF",data=pdf_bytes,file_name="BMI_Report.pdf",mime="application/pdf")
 
 
     with tab2:
@@ -363,6 +416,32 @@ if st.button("📄 Generate PDF Report"):
                 st.info("👍 You're close to your goal.")
             elif waterhad > 0:
                  st.warning("💧 Drink some more water.")
+    # TAB 3: PROGRESS CHART
+    with tab3:
+        st.header("📈 Your BMI Trend Over Time", divider='rainbow')
+        user_records = view_data(st.session_state.user_id)
+
+        if user_records:
+            df = pd.DataFrame(
+                user_records, 
+                columns=["Name", "Age", "Gender", "Height", "Weight", "BMI", "Category", "Water", "Date Recorded"]
+            )
+            df["Date Recorded"] = pd.to_datetime(df["Date Recorded"])
+            df = df.sort_values("Date Recorded")
+
+            fig_trend = px.line(
+                df, 
+                x="Date Recorded", 
+                y="BMI", 
+                markers=True, 
+                title="BMI History Progress",
+                labels={"BMI": "BMI Value", "Date Recorded": "Date"}
+            )
+            st.plotly_chart(fig_trend, use_container_width=True)
+        else:
+            st.info("No recorded BMI entries available to chart yet.")
+    
+                
 
 st.caption("Developed by Manmeet Kaur")
 st.caption("Built with streamlit & PostgreSQL")
