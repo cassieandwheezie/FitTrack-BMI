@@ -18,7 +18,7 @@ if "user_email" not in st.session_state:
 
 # If user is NOT logged in, show authentication forms and stop further execution
 if not st.session_state.logged_in:
-    st.title("🏋️ FitTrack BMI - Multi-User Login")
+    st.title("🏋️ FitTrack BMI")
     tab_login, tab_register = st.tabs(["🔒 Log In", "📝 Register"])
 
     with tab_login:
